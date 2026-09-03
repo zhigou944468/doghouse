@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1f1a17">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="狗窝">
+<title>狗窝 · 俄罗斯方块</title>
+<style>
+  :root {
+    --bg: #1f1a17;
+    --bg2: #2a231e;
+    --panel: #2c2420;
+    --panel-line: #3a2f28;
+    --board: #241d19;
+    --grid: #332923;
+    --ink: #f3e6d0;
+    --ink-dim: #b6a68f;
+    --accent: #f6ad55;
+    --accent2: #f08a5d;
+    --shadow: rgba(0,0,0,.45);
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0; padding: 0;
+    height: 100%;
+    background: radial-gradient(120% 120% at 50% 0%, #2a221d 0%, var(--bg) 60%);
+    color: var(--ink);
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+    overscroll-behavior: none;
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+  }
+
+  #app {
+    height: 100%;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    gap: 10px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 640px;
+  }
+  header .title {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  header .title .paw { font-size: 24px; }
+  header .sub { color: var(--ink-dim); font-size: 11px; font-weight: 400; margin-top: 1px; }
+  header .spacer { flex: 1; }
+  .icon-btn {
+    width: 40px; height: 40px;
+    border-radius: 12px;
+    border: 1px solid var(--panel-line);
+    background: var(--panel);
+    color: var(--ink);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:active { background: #3a2f28; }
+
+  main {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    justify-content: center;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .side {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 130px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    border-radius: 14px;
+    padding: 12px;
+    box-shadow: 0 6px 18px var(--shadow);
+  }
+  .card .label { color: var(--ink-dim); font-size: 11px; letter-spacing: 1px; margin-bottom: 4px; }
+  .card .value { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .card .value small { font-size: 12px; color: var(--ink-dim); font-weight: 400; }
+
+  .board-wrap {
+    position: relative;
+    background: var(--board);
+    border: 3px solid #5a4634;
+    border-radius: 14px;
+    padding: 4px;
+    box-shadow: 0 10px 30px var(--shadow), inset 0 0 0 1px #6b543f;
+  }
+  canvas#board {
+    display: block;
+    border-radius: 8px;
+    touch-action: none;
+  }
+
+  #preview { display: block; margin: 0 auto; }
+
+  .hint { font-size: 11px; color: var(--ink-dim); line-height: 1.7; }
+  .hint b { color: var(--ink); }
+
+  .controls {
+    display: none;
+    width: 100%;
+    max-width: 640px;
+    gap: 8px;
+    justify-content: center;
+  }
+  .btn {
+    flex: 1;
+    max-width: 88px;
+    height: 62px;
+    border-radius: 16px;
+    border: 1px solid var(--panel-line);
+    background: var(--panel);
+    color: var(--ink);
+    font-size: 22px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+  }
+  .btn:active, .btn.pressed { background: #3d332b; transform: translateY(1px); }
+  .btn.wide { max-width: none; flex: 1.4; }
+  .btn.accent { background: #3a2a17; border-color: #6b4a20; }
+  .btn.accent:active { background: #4d3a1f; }
+
+  /* 覆盖层：开始 / 结束 */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(31,26,23,.92);
+    backdrop-filter: blur(3px);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 20;
+    padding: 20px;
+  }
+  .overlay.hidden { display: none; }
+  .overlay .box {
+    text-align: center;
+    max-width: 340px;
+  }
+  .overlay .emoji { font-size: 64px; animation: bob 1.6s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+  .overlay h1 { font-size: 34px; margin: 14px 0 6px; letter-spacing: 2px; }
+  .overlay p { color: var(--ink-dim); font-size: 14px; margin: 0 0 22px; line-height: 1.7; }
+  .big-btn {
+    display: inline-block;
+    padding: 14px 40px;
+    font-size: 18px; font-weight: 700;
+    border-radius: 999px;
+    border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #2a1a0a;
+    cursor: pointer;
+    box-shadow: 0 8px 22px rgba(240,138,93,.35);
+    letter-spacing: 1px;
+  }
+  .big-btn:active { transform: translateY(2px); }
+  .score-final { font-size: 15px; color: var(--ink); margin: 12px 0 4px; }
+  .score-final b { color: var(--accent); font-size: 28px; }
+
+  @media (hover: none) and (pointer: coarse) {
+    .controls { display: flex; }
+    .side { width: 104px; }
+    .side .card { padding: 9px; }
+    .side .card .value { font-size: 18px; }
+    .hint { display: none; }
+    main { gap: 8px; }
+  }
+  @media (max-width: 420px) {
+    .side { width: 84px; }
+    .side .card .value { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="title"><span class="paw">🐶</span>狗窝<span class="sub">俄罗斯方块</span></div>
+    <div class="spacer"></div>
+    <button class="icon-btn" id="soundBtn" title="音效开关">🔊</button>
+  </header>
+
+  <main>
+    <aside class="side" id="leftPanel">
+      <div class="card">
+        <div class="label">🦴 分数</div>
+        <div class="value" id="score">0</div>
+      </div>
+      <div class="card">
+        <div class="label">🐾 行数</div>
+        <div class="value" id="lines">0</div>
+      </div>
+      <div class="card">
+        <div class="label">⭐ 等级</div>
+        <div class="value" id="level">1</div>
+      </div>
+      <div class="card">
+        <div class="label">🏆 最高分</div>
+        <div class="value" id="best">0</div>
+      </div>
+    </aside>
+
+    <div class="board-wrap">
+      <canvas id="board"></canvas>
+    </div>
+
+    <aside class="side" id="rightPanel">
+      <div class="card">
+        <div class="label">下一块</div>
+        <canvas id="preview" width="96" height="96"></canvas>
+      </div>
+      <div class="card hint">
+        <b>键盘</b><br>
+        ← → 移动<br>
+        ↑ 旋转<br>
+        ↓ 加速<br>
+        空格 硬降<br>
+        P 暂停 · M 音效
+      </div>
+    </aside>
+  </main>
+
+  <div class="controls">
+    <button class="btn" id="btnRotate">⟳</button>
+    <button class="btn" id="btnLeft">←</button>
+    <button class="btn wide" id="btnDown">↓</button>
+    <button class="btn" id="btnRight">→</button>
+    <button class="btn accent" id="btnDrop">⤓</button>
+  </div>
+</div>
+
+<!-- 开始覆盖层 -->
+<div class="overlay" id="startOverlay">
+  <div class="box">
+    <div class="emoji">🐶</div>
+    <h1>狗窝</h1>
+    <p>小奶狗哼唧版俄罗斯方块<br>把骨头方块叠整齐，喂饱小狗吧！</p>
+    <button class="big-btn" id="startBtn">开始游戏</button>
+  </div>
+</div>
+
+<!-- 结束覆盖层 -->
+<div class="overlay hidden" id="overOverlay">
+  <div class="box">
+    <div class="emoji">🥺</div>
+    <h1>小狗委屈</h1>
+    <p>窝满了，小奶狗呜咽起来……</p>
+    <div class="score-final">得分 <b id="finalScore">0</b></div>
+    <div class="score-final" style="margin-bottom:20px;color:var(--ink-dim)">最高分 <span id="finalBest">0</span></div>
+    <button class="big-btn" id="restartBtn">再来一局</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- 常量 ----------
+  const COLS = 10, ROWS = 20;
+  const COLORS = {
+    I: "#f7d794",
+    O: "#f8f1e5",
+    T: "#f1a9a0",
+    S: "#a8d8b9",
+    Z: "#f08a5d",
+    J: "#b08968",
+    L: "#f6ad55",
+  };
+  const SHAPES = {
+    I: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]],
+    O: [[1,1],[1,1]],
+    T: [[0,1,0],[1,1,1],[0,0,0]],
+    S: [[0,1,1],[1,1,0],[0,0,0]],
+    Z: [[1,1,0],[0,1,1],[0,0,0]],
+    J: [[1,0,0],[1,1,1],[0,0,0]],
+    L: [[0,0,1],[1,1,1],[0,0,0]],
+  };
+  const KEYS = ["I","O","T","S","Z","J","L"];
+  const SCORE_TABLE = [0, 100, 300, 500, 800];
+
+  // ---------- DOM ----------
+  const boardCanvas = document.getElementById("board");
+  const boardCtx = boardCanvas.getContext("2d");
+  const previewCanvas = document.getElementById("preview");
+  const previewCtx = previewCanvas.getContext("2d");
+  const scoreEl = document.getElementById("score");
+  const linesEl = document.getElementById("lines");
+  const levelEl = document.getElementById("level");
+  const bestEl = document.getElementById("best");
+  const soundBtn = document.getElementById("soundBtn");
+  const startOverlay = document.getElementById("startOverlay");
+  const overOverlay = document.getElementById("overOverlay");
+  const finalScoreEl = document.getElementById("finalScore");
+  const finalBestEl = document.getElementById("finalBest");
+
+  // ---------- 状态 ----------
+  let board = newBoard(), current = null, next = randomPiece();
+  let score = 0, lines = 0, level = 1, best;
+  let gameOver = false, paused = false, started = false;
+  let soundOn = true;
+  let cell = 0, dpr = 1;
+
+  best = parseInt(localStorage.getItem("doghouse-best") || "0", 10) || 0;
+  bestEl.textContent = best;
+
+  // ---------- 音效：小奶狗哼唧合成 ----------
+  let audioCtx = null;
+  function ensureAudio() {
+    if (!soundOn) return;
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+  }
+
+  // 核心：小奶狗"嘤嘤"鼻音颤音
+  function puppyWhimper(o) {
+    const p = Object.assign({
+      f0: 650, f1: 520, dur: 0.22,
+      vibrato: 22, vibratoDepth: 40,
+      vol: 0.16, nasal: 0.35, type: "sine",
+    }, o);
+    ensureAudio();
+    if (!audioCtx) return;
+    const ctx = audioCtx, t0 = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    osc.type = p.type;
+    osc.frequency.setValueAtTime(Math.max(p.f0, 40), t0);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(p.f1, 40), t0 + p.dur);
+
+    // 颤音（小狗哼唧的标志性抖动）
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = p.vibrato;
+    const lfoG = ctx.createGain();
+    lfoG.gain.value = p.vibratoDepth;
+    lfo.connect(lfoG); lfoG.connect(osc.frequency);
+
+    // 鼻音谐波，制造"嘤"的共鸣
+    const osc2 = ctx.createOscillator();
+    osc2.type = "triangle";
+    osc2.frequency.setValueAtTime(Math.max(p.f0 * 2.1, 40), t0);
+    osc2.frequency.exponentialRampToValueAtTime(Math.max(p.f1 * 2.1, 40), t0 + p.dur);
+    const g2 = ctx.createGain();
+    g2.gain.value = p.nasal;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.value = 950;
+    filter.Q.value = 1.1;
+
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.0001, t0);
+    master.gain.linearRampToValueAtTime(p.vol, t0 + 0.025);
+    master.gain.exponentialRampToValueAtTime(0.0001, t0 + p.dur);
+
+    osc.connect(filter);
+    osc2.connect(g2); g2.connect(filter);
+    filter.connect(master); master.connect(ctx.destination);
+
+    const end = t0 + p.dur + 0.05;
+    osc.start(t0); osc.stop(end);
+    osc2.start(t0); osc2.stop(end);
+    lfo.start(t0); lfo.stop(end);
+  }
+
+  function play(name) {
+    if (!soundOn) return;
+    switch (name) {
+      case "move":
+        puppyWhimper({ f0: 700, f1: 540, dur: 0.12, vol: 0.09, nasal: 0.25 }); break;
+      case "rotate":
+        puppyWhimper({ f0: 580, f1: 500, dur: 0.17, vol: 0.12 }); break;
+      case "soft":
+        puppyWhimper({ f0: 620, f1: 500, dur: 0.10, vol: 0.07, nasal: 0.2 }); break;
+      case "lock":
+        puppyWhimper({ f0: 340, f1: 250, dur: 0.16, vol: 0.14, vibrato: 10, vibratoDepth: 14, nasal: 0.15 }); break;
+      case "hard":
+        puppyWhimper({ f0: 820, f1: 420, dur: 0.20, vol: 0.16 }); break;
+      case "clear":
+        // 开心的上扬哼唧，连两下
+        puppyWhimper({ f0: 500, f1: 760, dur: 0.20, vol: 0.15, vibrato: 26 });
+        setTimeout(() => puppyWhimper({ f0: 620, f1: 900, dur: 0.22, vol: 0.14, vibrato: 28 }), 90);
+        break;
+      case "levelup":
+        puppyWhimper({ f0: 460, f1: 720, dur: 0.24, vol: 0.15, vibrato: 24 });
+        setTimeout(() => puppyWhimper({ f0: 560, f1: 840, dur: 0.24, vol: 0.13, vibrato: 26 }), 110);
+        break;
+      case "over":
+        puppyWhimper({ f0: 620, f1: 210, dur: 0.9, vol: 0.20, vibrato: 11, vibratoDepth: 26 });
+        break;
+    }
+  }
+
+  // ---------- 工具 ----------
+  function rotateMatrix(m) {
+    return m[0].map((_, i) => m.map(row => row[i]).reverse());
+  }
+  function randomPiece() {
+    const k = KEYS[Math.floor(Math.random() * KEYS.length)];
+    return { key: k, color: COLORS[k], shape: SHAPES[k].map(r => r.slice()) };
+  }
+
+  // ---------- 棋盘 ----------
+  function newBoard() {
+    return Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  }
+
+  function collide(shape, px, py) {
+    for (let r = 0; r < shape.length; r++) {
+      for (let c = 0; c < shape[r].length; c++) {
+        if (!shape[r][c]) continue;
+        const x = px + c, y = py + r;
+        if (x < 0 || x >= COLS || y >= ROWS) return true;
+        if (y >= 0 && board[y][x]) return true;
+      }
+    }
+    return false;
+  }
+
+  function spawn() {
+    current = { piece: next, x: Math.floor((COLS - next.shape[0].length) / 2), y: -1 };
+    next = randomPiece();
+    if (collide(current.piece.shape, current.x, current.y)) {
+      gameOver = true;
+      showOver();
+    }
+  }
+
+  function merge() {
+    const s = current.piece.shape;
+    for (let r = 0; r < s.length; r++) {
+      for (let c = 0; c < s[r].length; c++) {
+        if (!s[r][c]) continue;
+        const x = current.x + c, y = current.y + r;
+        if (y < 0) { gameOver = true; }
+        else if (y < ROWS) board[y][x] = current.piece.color;
+      }
+    }
+  }
+
+  function clearLines() {
+    let cleared = 0;
+    for (let r = ROWS - 1; r >= 0; r--) {
+      if (board[r].every(v => v)) {
+        board.splice(r, 1);
+        board.unshift(Array(COLS).fill(0));
+        cleared++;
+        r++; // 重新检查当前行
+      }
+    }
+    if (cleared > 0) {
+      score += (SCORE_TABLE[cleared] || 0) * level;
+      lines += cleared;
+      const newLevel = Math.floor(lines / 10) + 1;
+      if (newLevel > level) { level = newLevel; play("levelup"); }
+      else play("clear");
+      updateHud();
+    }
+  }
+
+  function dropInterval() {
+    return Math.max(80, 800 - (level - 1) * 70);
+  }
+
+  // ---------- 操作 ----------
+  function move(dx) {
+    if (!started || paused || gameOver) return;
+    if (!collide(current.piece.shape, current.x + dx, current.y)) {
+      current.x += dx;
+      play("move");
+    }
+  }
+
+  function rotate() {
+    if (!started || paused || gameOver) return;
+    const rs = rotateMatrix(current.piece.shape);
+    // 简单的墙踢：尝试左/右偏移一次
+    if (!collide(rs, current.x, current.y)) {
+      current.piece.shape = rs;
+    } else if (!collide(rs, current.x - 1, current.y)) {
+      current.piece.shape = rs; current.x -= 1;
+    } else if (!collide(rs, current.x + 1, current.y)) {
+      current.piece.shape = rs; current.x += 1;
+    } else {
+      return;
+    }
+    play("rotate");
+  }
+
+  function softDrop() {
+    if (!started || paused || gameOver) return false;
+    if (!collide(current.piece.shape, current.x, current.y + 1)) {
+      current.y += 1;
+      score += 1;
+      updateHud();
+      play("soft");
+      return true;
+    }
+    lockPiece();
+    return false;
+  }
+
+  function hardDrop() {
+    if (!started || paused || gameOver) return;
+    let dist = 0;
+    while (!collide(current.piece.shape, current.x, current.y + 1)) {
+      current.y += 1;
+      dist++;
+    }
+    score += dist * 2;
+    updateHud();
+    play("hard");
+    lockPiece();
+  }
+
+  function lockPiece() {
+    merge();
+    if (gameOver) { showOver(); return; }
+    play("lock");
+    clearLines();
+    spawn();
+  }
+
+  // ---------- 渲染 ----------
+  function cellSize() {
+    const availH = Math.max(200, window.innerHeight - 150);
+    // 桌面预留左右侧面板，移动端预留更窄
+    const reserve = window.innerWidth < 600 ? 200 : 320;
+    const availW = Math.max(140, window.innerWidth - reserve);
+    let c = Math.floor(Math.min(availH / ROWS, availW / COLS));
+    if (c < 14) c = 14;
+    if (c > 34) c = 34;
+    return c;
+  }
+
+  function resize() {
+    cell = cellSize();
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = COLS * cell, h = ROWS * cell;
+    boardCanvas.width = w * dpr;
+    boardCanvas.height = h * dpr;
+    boardCanvas.style.width = w + "px";
+    boardCanvas.style.height = h + "px";
+    boardCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    previewCanvas.width = 96 * dpr;
+    previewCanvas.height = 96 * dpr;
+    previewCanvas.style.width = "96px";
+    previewCanvas.style.height = "96px";
+    previewCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    draw();
+  }
+
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function drawBlock(ctx, x, y, s, color, alpha) {
+    ctx.save();
+    ctx.globalAlpha = alpha == null ? 1 : alpha;
+    // 主色块（圆角）
+    ctx.fillStyle = color;
+    roundRect(ctx, x + 1, y + 1, s - 2, s - 2, Math.max(3, s * 0.22));
+    ctx.fill();
+    // 高光
+    ctx.fillStyle = "rgba(255,255,255,.28)";
+    roundRect(ctx, x + 2, y + 2, s - 4, (s - 4) * 0.35, Math.max(3, s * 0.2));
+    ctx.fill();
+    // 内描边
+    ctx.strokeStyle = "rgba(0,0,0,.18)";
+    ctx.lineWidth = 1;
+    roundRect(ctx, x + 1.5, y + 1.5, s - 3, s - 3, Math.max(3, s * 0.22));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function draw() {
+    boardCtx.clearRect(0, 0, COLS * cell, ROWS * cell);
+
+    // 网格
+    boardCtx.strokeStyle = "rgba(255,255,255,.03)";
+    boardCtx.lineWidth = 1;
+    for (let r = 0; r <= ROWS; r++) {
+      boardCtx.beginPath();
+      boardCtx.moveTo(0, r * cell);
+      boardCtx.lineTo(COLS * cell, r * cell);
+      boardCtx.stroke();
+    }
+    for (let c = 0; c <= COLS; c++) {
+      boardCtx.beginPath();
+      boardCtx.moveTo(c * cell, 0);
+      boardCtx.lineTo(c * cell, ROWS * cell);
+      boardCtx.stroke();
+    }
+
+    // 已固定方块
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (board[r][c]) drawBlock(boardCtx, c * cell, r * cell, cell, board[r][c], 1);
+      }
+    }
+
+    // 当前方块 + 落点投影
+    if (current && started && !gameOver) {
+      const s = current.piece.shape;
+      // 投影
+      let gy = current.y;
+      while (!collide(s, current.x, gy + 1)) gy++;
+      for (let r = 0; r < s.length; r++) {
+        for (let c = 0; c < s[r].length; c++) {
+          if (!s[r][c]) continue;
+          const y = gy + r;
+          if (y >= 0) {
+            boardCtx.strokeStyle = current.piece.color;
+            boardCtx.globalAlpha = 0.35;
+            boardCtx.lineWidth = 1.5;
+            roundRect(boardCtx, current.x * cell + c * cell + 2, y * cell + 2, cell - 4, cell - 4, 4);
+            boardCtx.stroke();
+            boardCtx.globalAlpha = 1;
+          }
+        }
+      }
+      // 方块本体
+      for (let r = 0; r < s.length; r++) {
+        for (let c = 0; c < s[r].length; c++) {
+          if (!s[r][c]) continue;
+          const y = current.y + r;
+          if (y >= 0) drawBlock(boardCtx, (current.x + c) * cell, y * cell, cell, current.piece.color, 1);
+        }
+      }
+    }
+
+    // 暂停提示
+    if (paused && started && !gameOver) {
+      boardCtx.fillStyle = "rgba(0,0,0,.55)";
+      boardCtx.fillRect(0, 0, COLS * cell, ROWS * cell);
+      boardCtx.fillStyle = "#f3e6d0";
+      boardCtx.font = "bold " + Math.round(cell * 1.4) + "px sans-serif";
+      boardCtx.textAlign = "center";
+      boardCtx.textBaseline = "middle";
+      boardCtx.fillText("⏸ 暂停", (COLS * cell) / 2, (ROWS * cell) / 2);
+    }
+
+    // 下一块预览
+    previewCtx.clearRect(0, 0, 96, 96);
+    if (next) {
+      const s = next.shape;
+      const bs = 18;
+      const w = s[0].length * bs, h = s.length * bs;
+      const ox = (96 - w) / 2, oy = (96 - h) / 2;
+      for (let r = 0; r < s.length; r++) {
+        for (let c = 0; c < s[r].length; c++) {
+          if (s[r][c]) drawBlock(previewCtx, ox + c * bs, oy + r * bs, bs, next.color, 1);
+        }
+      }
+    }
+  }
+
+  function updateHud() {
+    scoreEl.textContent = score;
+    linesEl.textContent = lines;
+    levelEl.textContent = level;
+    if (score > best) {
+      best = score;
+      localStorage.setItem("doghouse-best", String(best));
+    }
+    bestEl.textContent = best;
+  }
+
+  // ---------- 覆盖层 ----------
+  function showOver() {
+    overOverlay.classList.remove("hidden");
+    finalScoreEl.textContent = score;
+    finalBestEl.textContent = best;
+  }
+
+  function startGame() {
+    board = newBoard();
+    score = 0; lines = 0; level = 1;
+    gameOver = false; paused = false; started = true;
+    next = randomPiece();
+    spawn();
+    updateHud();
+    startOverlay.classList.add("hidden");
+    overOverlay.classList.add("hidden");
+    lastDrop = performance.now();
+  }
+
+  // ---------- 游戏循环 ----------
+  let lastDrop = 0;
+  function loop(now) {
+    if (started && !paused && !gameOver) {
+      if (now - lastDrop > dropInterval()) {
+        lastDrop = now;
+        if (collide(current.piece.shape, current.x, current.y + 1)) {
+          lockPiece();
+        } else {
+          current.y += 1;
+        }
+      }
+    }
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- 输入 ----------
+  function onKey(e) {
+    const k = e.key;
+    if (["ArrowLeft","ArrowRight","ArrowUp","ArrowDown"," ","Spacebar"].includes(k)) e.preventDefault();
+    if (!started) { if (k === "Enter" || k === " ") startGame(); return; }
+    switch (k) {
+      case "ArrowLeft": move(-1); break;
+      case "ArrowRight": move(1); break;
+      case "ArrowUp": case "x": case "X": rotate(); break;
+      case "ArrowDown": softDrop(); break;
+      case " ": case "Spacebar": hardDrop(); break;
+      case "p": case "P": togglePause(); break;
+      case "m": case "M": toggleSound(); break;
+      case "Enter": if (gameOver) startGame(); break;
+    }
+  }
+
+  function togglePause() {
+    if (!started || gameOver) return;
+    paused = !paused;
+    if (!paused) lastDrop = performance.now();
+  }
+
+  function toggleSound() {
+    soundOn = !soundOn;
+    soundBtn.textContent = soundOn ? "🔊" : "🔇";
+    if (soundOn) ensureAudio();
+  }
+
+  // 触屏按钮长按重复
+  function bindHold(btn, fn) {
+    let timer = null;
+    const start = (e) => { e.preventDefault(); ensureAudio(); fn(); timer = setInterval(fn, 120); btn.classList.add("pressed"); };
+    const stop = () => { if (timer) { clearInterval(timer); timer = null; } btn.classList.remove("pressed"); };
+    btn.addEventListener("pointerdown", start);
+    btn.addEventListener("pointerup", stop);
+    btn.addEventListener("pointerleave", stop);
+    btn.addEventListener("pointercancel", stop);
+  }
+
+  // 棋盘滑动
+  let touchStartX = 0, touchStartY = 0, touchStartT = 0;
+  boardCanvas.addEventListener("touchstart", (e) => {
+    const t = e.touches[0];
+    touchStartX = t.clientX; touchStartY = t.clientY; touchStartT = Date.now();
+  }, { passive: true });
+  boardCanvas.addEventListener("touchend", (e) => {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchStartX, dy = t.clientY - touchStartY;
+    const dt = Date.now() - touchStartT;
+    const adx = Math.abs(dx), ady = Math.abs(dy);
+    if (Math.max(adx, ady) < 18) {
+      if (dt < 250) rotate(); // 轻点旋转
+      return;
+    }
+    if (adx > ady) { move(dx > 0 ? 1 : -1); }
+    else if (dy < 0) { rotate(); }
+    else { hardDrop(); }
+  }, { passive: true });
+
+  // ---------- 事件绑定 ----------
+  window.addEventListener("keydown", onKey);
+  window.addEventListener("resize", resize);
+  document.getElementById("startBtn").addEventListener("click", () => { ensureAudio(); startGame(); });
+  document.getElementById("restartBtn").addEventListener("click", () => { ensureAudio(); startGame(); });
+  soundBtn.addEventListener("click", toggleSound);
+  bindHold(document.getElementById("btnLeft"), () => move(-1));
+  bindHold(document.getElementById("btnRight"), () => move(1));
+  bindHold(document.getElementById("btnDown"), () => softDrop());
+  document.getElementById("btnRotate").addEventListener("pointerdown", (e) => { e.preventDefault(); ensureAudio(); rotate(); });
+  document.getElementById("btnDrop").addEventListener("pointerdown", (e) => { e.preventDefault(); ensureAudio(); hardDrop(); });
+
+  // ---------- 启动 ----------
+  resize();
+  requestAnimationFrame(loop);
+})();
+
+// 注册 Service Worker（需 HTTPS 或 localhost 环境生效）
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+  });
+}
+</script>
+</body>
+</html>

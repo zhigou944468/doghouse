@@ -1,0 +1,17 @@
+{
+  "name": "狗窝 · 俄罗斯方块",
+  "short_name": "狗窝",
+  "description": "小奶狗哼唧版俄罗斯方块，可爱音效，支持触屏与离线。",
+  "lang": "zh-CN",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1f1a17",
+  "theme_color": "#1f1a17",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
