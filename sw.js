@@ -1,5 +1,5 @@
 /* 狗窝 · Service Worker —— 离线缓存 */
-const CACHE = "doghouse-v1";
+const CACHE = "doghouse-v2";
 const ASSETS = [
   "./",
   "./index.html",
